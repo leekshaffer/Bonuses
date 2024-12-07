@@ -30,26 +30,31 @@ PStats <- Pitchers %>% mutate(
   C.WAAf=(FIPshare+WAAfshare)/2,
   C.bWAR=(FIPshare+bWAR.pshare)/2,
   C.WARP=(FIPshare+WARP.pshare)/2,
-  C.WARsbr=(fWAR.pshare+bWAR.pshare)/2,
-  C.WARsbp=(fWAR.pshare+WARP.pshare)/2
+  C.WARs.br.fg=(fWAR.pshare+bWAR.pshare)/2,
+  C.WARs.fg.bp=(fWAR.pshare+WARP.pshare)/2,
+  C.WARs.br.bp.fg=(bWAR.pshare+WARP.pshare+fWAR.pshare)/3
 )
 
 reg.p.c1 <- lm(PShare~0+C.WAA, data=PStats)
 reg.p.c2 <- lm(PShare~0+C.WAAf, data=PStats)
 reg.p.c3 <- lm(PShare~0+C.bWAR, data=PStats)
 reg.p.c4 <- lm(PShare~0+C.WARP, data=PStats)
-reg.p.c5 <- lm(PShare~0+C.WARsbr, data=PStats)
-reg.p.c6 <- lm(PShare~0+C.WARsbp, data=PStats)
+reg.p.c5 <- lm(PShare~0+C.WARs.br.fg, data=PStats)
+reg.p.c6 <- lm(PShare~0+C.WARs.fg.bp, data=PStats)
+reg.p.c7 <- lm(PShare~0+C.WARs.br.bp.fg, data=PStats)
 
 ## Combo of BRef and FG WAR wins:
-sd(PStats$PShare-PStats$C.WARsbr)
-mean(abs(PStats$PShare-PStats$C.WARsbr))
+sd(PStats$PShare-PStats$C.WARs.br.fg)
+mean(abs(PStats$PShare-PStats$C.WARs.br.fg))
+
+sd(PStats$PShare-PStats$C.WARs.br.bp.fg)
+mean(abs(PStats$PShare-PStats$C.WARs.br.bp.fg))
 
 
 ## Apply BREF & FG WAR shares metric to 2022 and 2023 data:
 PStats_23 <- PStats %>% dplyr::select(Name,MLBAMID,BREFID,FGID,Season,
-                                      BonusW,PShare,C.WARsbr) %>%
-  mutate(XBonus=sum(BonusW)*C.WARsbr,
+                                      BonusW,PShare,C.WARs.br.fg,C.WARs.br.bp.fg) %>%
+  mutate(XBonus=sum(BonusW)*C.WARs.br.fg,
          Bonus_Diff=BonusW-XBonus)
 ggplot(data=PStats_23, mapping=aes(x=XBonus, y=BonusW)) + geom_point() + 
   theme_bw() +
@@ -60,16 +65,16 @@ PStats_22 <- Data_22_Full %>%
   mutate(PShare=Share/sum(Share),
          fWAR.pshare=fWAR.p/sum(fWAR.p),
          bWAR.pshare=bWAR.p/sum(bWAR.p),
-         C.WARsbr=(fWAR.pshare+bWAR.pshare)/2) %>% 
+         C.WARs.br.fg=(fWAR.pshare+bWAR.pshare)/2) %>% 
   dplyr::select(Name,Exact,MLBAMID,BREFID,FGID,Season,
-                BonusW,PShare,C.WARsbr)
+                BonusW,PShare,C.WARs.br.fg)
 Comp <- PStats_22 %>% dplyr::filter(Exact) %>% 
   dplyr::summarize(BonusW=sum(BonusW),
-                   C.WARsbr=sum(C.WARsbr))
+                   C.WARs.br.fg=sum(C.WARs.br.fg))
 PStats_22 <- PStats_22 %>%
   mutate(BonusW.rel=BonusW/Comp$BonusW,
-         C.WARsbr.rel=C.WARsbr/Comp$C.WARsbr,
-         XBonus=C.WARsbr.rel*Comp$BonusW,
+         C.WARs.br.fg.rel=C.WARs.br.fg/Comp$C.WARs.br.fg,
+         XBonus=C.WARs.br.fg.rel*Comp$BonusW,
          Bonus_Diff=BonusW-XBonus)
 ggplot(data=PStats_22, 
        mapping=aes(x=XBonus, y=BonusW, shape=Exact, color=Exact)) + 
