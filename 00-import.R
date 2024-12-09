@@ -1,6 +1,7 @@
 library(tidyverse)
 library(readxl)
 library(baseballr) ## used to map across IDs
+library(googlesheets4) ## used to import contracts and service time information
 
 ## Import ID-matching info:
 Crosswalk <- chadwick_player_lu()
@@ -92,4 +93,39 @@ for (yr in 22:23) {
   ## Save results:
   save(list=savelist,
        file=paste0("int/Data_",yr,".Rda"))
+}
+
+
+### Service time and contract information import:
+#### Note season is the year that has that salary and starts with that much service time
+
+cols1 <- "ccdd---"
+names1 <- c("Player","Position","Service","Salary")
+cols2 <- "ccd"
+names2 <- c("Player","Position","Service")
+for (yr in 2010:2024) {
+  assign(x=paste0("Service_",yr),
+         value=range_read(ss="https://docs.google.com/spreadsheets/d/12XSXOQpjDJDCJKsA4xC1e_9FlS11aeioZy_p1nqpclg/edit?gid=1937251654#gid=1937251654",
+                          sheet=paste0(as.character(yr),".xls"),
+                          col_types=cols1,
+                          col_names=names1,
+                          skip=2,
+                          trim_ws=TRUE) %>%
+           mutate(Season=yr) %>%
+           dplyr::filter(!is.na(Service) & !is.na(Salary)) %>%
+           left_join(range_read(ss="https://docs.google.com/spreadsheets/d/1m9ap5cOX3j4ZYnmceOZ0oK8GtLg5YGesNsxMZb6GFIs/edit?gid=435379795#gid=435379795",
+                                sheet=paste0("MLS thru ",as.character(yr-1),".xls"),
+                                col_types=cols2,
+                                col_names=names2,
+                                skip=1,
+                                trim_ws=TRUE) %>%
+                       mutate(Season=yr) %>%
+                       dplyr::filter(!is.na(Service)),
+                     by=c("Player","Season"),
+                     multiple="first") %>%
+    mutate(Position=if_else(is.na(Position.x) & !is.na(Position.y), Position.y,
+                            Position.x),
+           Service=if_else(is.na(Service.y) & !is.na(Service.x), Service.x,
+                           if_else(is.na(Service.x), Service.y,
+                                   if_else(Service.y==0 & Service.x > 0, Service.x, Service.y)))))
 }
