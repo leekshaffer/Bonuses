@@ -5,6 +5,17 @@ library(googlesheets4) ## used to import contracts and service time information
 
 ## Import ID-matching info:
 Crosswalk <- chadwick_player_lu()
+rem.acc.pd.suff <- function(string) {
+  string <- chartr("áÁéÉëíÍñóÓúÚ","aAeEeiInoOuU",str_squish(gsub("[.]"," ",string)))
+  string <- gsub(" Jr","",gsub(" II","",gsub(" III","",string)))
+  string <- gsub("-","",gsub(" ","",string))
+  return(string)
+}
+Cross_use <- Crosswalk %>% filter(mlb_played_first > 1975) %>%
+  mutate(first=rem.acc.pd.suff(name_first),
+         last=rem.acc.pd.suff(name_last),
+         full=str_squish(paste(name_first,name_last,name_suffix,sep=" ")))
+
 
 for (yr in 22:23) {
   ## Read in bonus data:
@@ -47,7 +58,7 @@ for (yr in 22:23) {
   
   ## Combine data:
   Base_info <- Bonus %>% 
-    left_join(Crosswalk %>% 
+    left_join(Cross_use %>% 
                 dplyr::select(name_first,name_last,
                               key_mlbam,key_bbref,key_fangraphs) %>%
                 rename(MLBAMID=key_mlbam,BREFID=key_bbref,FGID=key_fangraphs),
@@ -104,28 +115,36 @@ names1 <- c("Player","Position","Service","Salary")
 cols2 <- "ccd"
 names2 <- c("Player","Position","Service")
 for (yr in 2010:2024) {
-  assign(x=paste0("Service_",yr),
-         value=range_read(ss="https://docs.google.com/spreadsheets/d/12XSXOQpjDJDCJKsA4xC1e_9FlS11aeioZy_p1nqpclg/edit?gid=1937251654#gid=1937251654",
+  import1 <- range_read(ss="https://docs.google.com/spreadsheets/d/12XSXOQpjDJDCJKsA4xC1e_9FlS11aeioZy_p1nqpclg/edit?gid=1937251654#gid=1937251654",
                           sheet=paste0(as.character(yr),".xls"),
                           col_types=cols1,
                           col_names=names1,
                           skip=2,
                           trim_ws=TRUE) %>%
-           mutate(Season=yr) %>%
-           dplyr::filter(!is.na(Service) & !is.na(Salary)) %>%
-           left_join(range_read(ss="https://docs.google.com/spreadsheets/d/1m9ap5cOX3j4ZYnmceOZ0oK8GtLg5YGesNsxMZb6GFIs/edit?gid=435379795#gid=435379795",
+           mutate(Season=yr,
+                  original=Player) %>%
+           dplyr::filter(!is.na(Service) & !is.na(Salary)) %>% 
+           separate_wider_delim(cols="Player", names=c("last","first"), delim=",") %>% 
+           mutate(first=rem.acc.pd.suff(first),
+                  last=rem.acc.pd.suff(last))
+  test <- left_join(import1, Cross_use %>% dplyr::select(key_bbref,key_mlbam,last,first,full), 
+                    by=c("first","last"))
+  import2 <- range_read(ss="https://docs.google.com/spreadsheets/d/1m9ap5cOX3j4ZYnmceOZ0oK8GtLg5YGesNsxMZb6GFIs/edit?gid=435379795#gid=435379795",
                                 sheet=paste0("MLS thru ",as.character(yr-1),".xls"),
                                 col_types=cols2,
                                 col_names=names2,
                                 skip=1,
                                 trim_ws=TRUE) %>%
                        mutate(Season=yr) %>%
-                       dplyr::filter(!is.na(Service)),
+                       dplyr::filter(!is.na(Service))
+  importcomb <- left_join(import1,import2,
                      by=c("Player","Season"),
                      multiple="first") %>%
     mutate(Position=if_else(is.na(Position.x) & !is.na(Position.y), Position.y,
                             Position.x),
            Service=if_else(is.na(Service.y) & !is.na(Service.x), Service.x,
                            if_else(is.na(Service.x), Service.y,
-                                   if_else(Service.y==0 & Service.x > 0, Service.x, Service.y)))))
+                                   if_else(Service.y==0 & Service.x > 0, Service.x, Service.y))))
+  assign(x = paste0("Service_",yr),
+         value = importcomb)
 }
