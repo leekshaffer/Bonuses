@@ -172,7 +172,7 @@ for (yr in 2010:2024) {
   # write_csv(x=Svc_fix %>% arrange(original),
   #           file=paste0("int_sal_svc/Svc_fix_",yr,".csv"))
   save(Svc_keep,
-       file=paste0("int_sal_svc/Svc_keep_",yr,".csv"))
+       file=paste0("int_sal_svc/Svc_keep_",yr,".Rda"))
   
   Sizes <- Sizes %>% bind_rows(tibble(Season=yr,
                                       I1.size=dim(import1)[1],
