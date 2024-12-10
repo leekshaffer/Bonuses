@@ -184,8 +184,8 @@ for (yr in 2010:2024) {
   
   Fix_Sal <- Fix_Sal %>% bind_rows(Sal_fix)
   Fix_Svc <- Fix_Svc %>% bind_rows(Svc_fix)
-  write_csv(x=Fix_Sal %>% arrange(original),
-            file="int_sal_svc/Sal_fix_full.csv")
-  write_csv(x=Fix_Svc %>% arrange(original),
-            file="int_sal_svc/Svc_fix_full.csv")
 }
+write_csv(x=Fix_Sal %>% arrange(original),
+          file="int_sal_svc/Sal_fix_full.csv")
+write_csv(x=Fix_Svc %>% arrange(original),
+          file="int_sal_svc/Svc_fix_full.csv")
