@@ -6,7 +6,7 @@ library(googlesheets4) ## used to import contracts and service time information
 ## Import ID-matching info:
 Crosswalk <- chadwick_player_lu()
 rem.acc.pd.suff <- function(string) {
-  string <- chartr("áÁéÉëíÍñóÓúÚ","aAeEeiInoOuU",str_squish(gsub("[.]"," ",string)))
+  string <- chartr("áÁéÉëËíÍñóÓúÚüÜ","aAeEeEiInoOuUuU",str_squish(gsub("[.]"," ",string)))
   string <- gsub(" Jr","",gsub(" II","",gsub(" III","",string)))
   string <- gsub("-","",gsub(" ","",string))
   return(string)
@@ -115,6 +115,8 @@ names1 <- c("Player","Position","Service","Salary")
 cols2 <- "ccd"
 names2 <- c("Player","Position","Service")
 Sizes <- NULL
+Fix_Sal <- NULL
+Fix_Svc <- NULL
 for (yr in 2010:2024) {
   print(paste0("Starting year ",yr))
   import1 <- range_read(ss="https://docs.google.com/spreadsheets/d/12XSXOQpjDJDCJKsA4xC1e_9FlS11aeioZy_p1nqpclg/edit?gid=1937251654#gid=1937251654",
@@ -125,7 +127,7 @@ for (yr in 2010:2024) {
                           trim_ws=TRUE) %>%
            mutate(Season=yr,
                   original=Player) %>%
-           dplyr::filter(!is.na(Service) & !is.na(Salary)) %>% 
+           dplyr::filter(!is.na(Service) | !is.na(Salary)) %>% 
            separate_wider_delim(cols="Player", names=c("last","first"), delim=",", 
                                 too_many="merge", too_few="align_start") %>% 
            mutate(first=rem.acc.pd.suff(first),
@@ -140,8 +142,8 @@ for (yr in 2010:2024) {
                                      distinct())
   Sal_keep <- Sal_keep %>% group_by(last,first,original) %>%
     dplyr::filter(n()==1 & !is.na(key_bbref)) %>% ungroup()
-  write_csv(x=Sal_fix %>% arrange(original),
-            file=paste0("int_sal_svc/Sal_fix_",yr,".csv"))
+  # write_csv(x=Sal_fix %>% arrange(original),
+  #           file=paste0("int_sal_svc/Sal_fix_",yr,".csv"))
   save(Sal_keep,
        file=paste0("int_sal_svc/Sal_keep_",yr,".Rda"))
   
@@ -167,8 +169,8 @@ for (yr in 2010:2024) {
                                      distinct())
   Svc_keep <- Svc_keep %>% group_by(last,first,original) %>%
     dplyr::filter(n()==1 & !is.na(key_bbref)) %>% ungroup()
-  write_csv(x=Svc_fix %>% arrange(original),
-            file=paste0("int_sal_svc/Svc_fix_",yr,".csv"))
+  # write_csv(x=Svc_fix %>% arrange(original),
+  #           file=paste0("int_sal_svc/Svc_fix_",yr,".csv"))
   save(Svc_keep,
        file=paste0("int_sal_svc/Svc_keep_",yr,".csv"))
   
@@ -179,4 +181,11 @@ for (yr in 2010:2024) {
                                       I2.size=dim(import2)[1],
                                       I2.check=dim(Svc_fix)[1]+dim(Svc_keep)[1],
                                       I2.fix=dim(Svc_fix)[1]))
+  
+  Fix_Sal <- Fix_Sal %>% bind_rows(Sal_fix)
+  Fix_Svc <- Fix_Svc %>% bind_rows(Svc_fix)
+  write_csv(x=Fix_Sal %>% arrange(original),
+            file="int_sal_svc/Sal_fix_full.csv")
+  write_csv(x=Fix_Svc %>% arrange(original),
+            file="int_sal_svc/Svc_fix_full.csv")
 }
