@@ -1,7 +1,7 @@
-library(tidyverse)
-library(readxl)
+require(tidyverse)
+require(readxl)
 
-## Import crosswalk data:
+## Import crosswalk data, add some fixes:
 load(file="int/Crosswalk.Rda")
 rem.acc.pd.suff <- function(string) {
   string <- chartr("áÁéÉëËíÍñóÓúÚüÜ","aAeEeEiInoOuUuU",str_squish(gsub("[.]"," ",string)))
@@ -9,9 +9,12 @@ rem.acc.pd.suff <- function(string) {
   string <- gsub("-","",gsub(" ","",string))
   return(string)
 }
+Cross_use[Cross_use$key_bbref=="skenepa01","key_fangraphs"] <- 33677
+Cross_use[Cross_use$key_bbref=="schwesp01","key_fangraphs"] <- 31846
+Cross_use[Cross_use$key_bbref=="myersto01","key_fangraphs"] <- 22191
 
 
-for (yr in 22:23) {
+for (yr in 22:24) {
   ## Read in bonus data:
   Bonus <- read_excel("data/PreArbBonus.xlsx",
                       sheet = paste0("BonusesAdj",yr)) %>% 
@@ -123,4 +126,44 @@ Svc_Sal <- Svc_Sal %>% left_join(SSlag, by=c("key_bbref","Season")) %>%
                                         if_else(Service < Threshold,"UnderS2",
                                                 if_else(is.na(Svc_diffl),"Possible S2",
                                                         if_else(Svc_diffl >= 86,"SuperTwo","UnderS2"))))))
+
+
+## See if Bonus folks are caught in Under S2 classification:
+B23Check <- Data_23_Full %>%
+  left_join(Svc_Sal %>% dplyr::filter(Season==2023) %>% 
+              dplyr::select(key_bbref,Svc_cat),
+            by=join_by(BREFID==key_bbref))
+B23Check %>% dplyr::select(Name,Bonus,Svc_cat,BREFID) %>% 
+  filter(is.na(Svc_cat))
+Svc_Sal %>% filter(key_bbref %in% (B23Check %>% 
+                                     dplyr::select(Name,Bonus,Svc_cat,BREFID) %>% 
+                                     filter(is.na(Svc_cat)) %>% pull(BREFID)))
+#### 11 NAs, all of whom appear in salary data set first in 2024
+#### All others are in "UnderS2" category
+
+B22Check <- Data_22_Full %>%
+  left_join(Svc_Sal %>% dplyr::filter(Season==2022) %>% 
+              dplyr::select(key_bbref,Svc_cat),
+            by=join_by(BREFID==key_bbref))
+B22Check %>% dplyr::select(Name,Bonus,Svc_cat,BREFID) %>% 
+  filter(is.na(Svc_cat))
+Svc_Sal %>% filter(key_bbref %in% (B22Check %>% 
+                                     dplyr::select(Name,Bonus,Svc_cat,BREFID) %>% 
+                                     filter(is.na(Svc_cat)) %>% pull(BREFID)))
+#### 2 NAs, both of whom appear in salary data set first in 2023
+#### All others are in "UnderS2" category
+
+B24Check <- Data_24_Full %>%
+  left_join(Svc_Sal %>% dplyr::filter(Season==2024) %>% 
+              dplyr::select(key_bbref,Svc_cat),
+            by=join_by(BREFID==key_bbref))
+B24Check %>% dplyr::select(Name,Bonus,Svc_cat,BREFID) %>% 
+  filter(is.na(Svc_cat))
+Svc_Sal %>% filter(key_bbref %in% (B23Check %>% 
+                                     dplyr::select(Name,Bonus,Svc_cat,BREFID) %>% 
+                                     filter(is.na(Svc_cat)) %>% pull(BREFID)))
+#### 3 NAs, all of whom appear were not on 2024 opening day roster (I think)
+#### All others are in "UnderS2" category
+
+
 
