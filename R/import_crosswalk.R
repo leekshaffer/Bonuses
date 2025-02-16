@@ -5,7 +5,7 @@ require(baseballr)
 ## Import ID-matching info:
 Crosswalk <- chadwick_player_lu()
 
-Cross_use <- Crosswalk %>% filter(birth_year >= 1980) %>%
+Cross_use <- Crosswalk %>%
   mutate(full=str_squish(paste(name_first,name_last,name_suffix,sep=" ")))
 
 ## Some manual fixes:

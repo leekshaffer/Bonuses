@@ -23,6 +23,11 @@ rem.full <- function(string) {
   return(tolower(rem.space(rem.acc.pd.suff(string))))
 }
 
+CU <- Cross_use %>% 
+  dplyr::filter(mlb_played_first > 1975) %>%
+  mutate(first=rem.full(name_first),
+         last=rem.full(name_last))
+
 ### Service time and contract information import:
 #### Note season is the year that has that salary and starts with that much service time
 
@@ -49,7 +54,8 @@ for (yr in 2010:2024) {
            last=rem.full(last))
   Sal_fix <- import1 %>% group_by(last,first,original) %>% filter(n() > 1) %>% ungroup()
   Sal_keep <- import1 %>% group_by(last,first,original) %>% filter(n()==1) %>% ungroup() %>%
-    left_join(Cross_use %>% dplyr::select(key_bbref,key_mlbam,last,first,full), 
+    left_join(CU %>% 
+                dplyr::select(key_bbref,key_mlbam,last,first,full), 
               by=c("first","last"))
   Sal_fix <- Sal_fix %>% bind_rows(Sal_keep %>% group_by(last,first,original) %>% 
                                      dplyr::filter(n() > 1 | is.na(key_bbref) | key_bbref=="") %>% ungroup() %>%
@@ -77,7 +83,8 @@ for (yr in 2010:2025) {
            last=rem.full(last))
   Svc_fix <- import2 %>% group_by(last,first,original) %>% filter(n() > 1) %>% ungroup()
   Svc_keep <- import2 %>% group_by(last,first,original) %>% filter(n()==1) %>% ungroup() %>%
-    left_join(Cross_use %>% dplyr::select(key_bbref,key_mlbam,last,first,full), 
+    left_join(CU %>% 
+                dplyr::select(key_bbref,key_mlbam,last,first,full), 
               by=c("first","last"))
   Svc_fix <- Svc_fix %>% bind_rows(Svc_keep %>% group_by(last,first,original) %>% 
                                      dplyr::filter(n() > 1 | is.na(key_bbref) | key_bbref=="") %>% ungroup() %>%
@@ -99,11 +106,11 @@ write_csv(x=Fix_Svc %>% arrange(original),
 #### Manually fix Fix_ spreadsheets and save as _fix_res.csv:
 
 Salaries <- read_csv(file="int_sal_svc/Sal_fix_res.csv") %>% dplyr::select(-c(last,first)) %>%
-  left_join(Cross_use %>% dplyr::select(key_bbref,key_mlbam,last,first,full), 
+  left_join(CU %>% dplyr::select(key_bbref,key_mlbam,last,first,full), 
             by="key_bbref") %>% 
   dplyr::select(full,last,first,original,key_bbref,key_mlbam,Season,Position,Service,Salary)
 SvcTimes <- read_csv(file="int_sal_svc/Svc_fix_res.csv") %>% dplyr::select(-c(last,first)) %>%
-  left_join(Cross_use %>% dplyr::select(key_bbref,key_mlbam,last,first,full), 
+  left_join(CU %>% dplyr::select(key_bbref,key_mlbam,last,first,full), 
             by="key_bbref") %>% 
   dplyr::select(full,last,first,original,key_bbref,key_mlbam,Season,Position,Service)
 for (yr in 2010:2024) {

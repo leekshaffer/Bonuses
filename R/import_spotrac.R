@@ -3,6 +3,7 @@ require(tidyr)
 require(stringr)
 require(readr)
 require(rvest)
+require(janitor)
 
 ## load Crosswalk data
 load(file="int/Crosswalk.Rda")
@@ -92,6 +93,7 @@ get_spotrac <- function(year) {
       dupes_keep <- dupes_keep %>% 
         bind_rows(dupe_ind %>% 
                     dplyr::filter(keep) %>%
+                    dplyr::select(-c("keep")) %>%
                     slice_max(order_by=tibble(value,yos), 
                               n=1, with_ties=FALSE))
     }
@@ -103,6 +105,24 @@ get_spotrac <- function(year) {
   return(list(PreArb=PreArb, Arb=Arb))
 }
 
+## Function for pre-arbitration extensions:
+get_spotrac_ext <- function() {
+  ExtL <- rvest::read_html("https://www.spotrac.com/mlb/pre-arbitration/extensions") %>% 
+    rvest::html_elements("table")
+  PAExt <- ExtL[[1]] %>%
+    rvest::html_table() %>% 
+    janitor::clean_names() %>%
+    mutate(status="Extension",
+           year_last=year+length-1) %>%
+    mutate(across(.cols=c("value","average","signing_bonus","x2_yr_cash","x3_yr_cash"),
+                  .fn=~as.numeric(str_replace_all(.x, "[$.,]","")))) %>%
+    rename_with(.fn=~str_extract(.x, "[^_]+"), .cols=starts_with("player")) %>%
+    rename(year_sign=year) %>%
+    dplyr::select(player,status,pos,team,age_sign,year_sign,year_last,
+                  length,type,everything())
+  return(PAExt)
+}
+
 PreArbDB <- NULL
 ArbDB <- NULL
 years <- 2021:2025
@@ -111,15 +131,31 @@ for (year in years) {
   PreArbDB <- rbind(PreArbDB,yrlist$PreArb)
   ArbDB <- rbind(ArbDB,yrlist$Arb)
 }
+ExtDB <- get_spotrac_ext() %>%
+  cross_join(tibble(year=years)) %>%
+  dplyr::filter(year >= year_sign & year <= year_last) %>%
+  mutate(age_low=year-year_sign+age_sign,
+         age_high=year-year_sign+age_sign+1,
+         year_cont=year-year_sign+1,
+         status=paste0("Extension-",year_cont)) %>%
+  rename(pos_hold=team) %>%
+  rename(team=pos) %>%
+  rename(pos=pos_hold) %>%
+  dplyr::select(year,player,status,pos,team,age_low,age_high,year_cont,everything())
 
 CombDB <- PreArbDB %>% 
   bind_rows(ArbDB %>% 
-              dplyr::select(all_of(colnames(PreArbDB))))
+              dplyr::select(all_of(colnames(PreArbDB)))) %>%
+  mutate(age_low=age, age_high=age) %>%
+  bind_rows(ExtDB %>%
+              mutate(yos=NA_real_,
+                     value=average) %>%
+              dplyr::select(any_of(c(colnames(PreArbDB),"age_low","age_high"))))
 
-save(list=c("PreArbDB","ArbDB","CombDB"),
+save(list=c("PreArbDB","ArbDB","ExtDB","CombDB"),
      file="int/PreFADBs.Rda")
 
-Cross_use_DB <- Cross_use %>%
+Cross_use_DB <- Cross_use %>% dplyr::filter(birth_year >= 1980) %>%
   dplyr::mutate(pl_simp=rem.full(full),
                 age_yr=if_else(birth_month < 7, birth_year,
                                if_else(birth_month == 7 & birth_day == 1, 
@@ -131,7 +167,12 @@ Cross_use_DB <- Cross_use %>%
 
 CombDB2 <- CombDB %>% mutate(pl_simp=rem.full(player)) %>% 
   left_join(Cross_use_DB,
-            by=c("year","pl_simp","age"))
+            by=join_by(year==year,
+                       pl_simp==pl_simp,
+                       age_low<=age,
+                       age_high>=age)) %>%
+  mutate(age=age.y) %>% 
+  dplyr::select(-c("age.x","age.y","age_low","age_high"))
 
 dupes <- CombDB2 %>% 
   semi_join((CombDB2 %>% dplyr::select(year,player,status,pos,team,age))[duplicated(CombDB2 %>% dplyr::select(year,player,status,pos,team,age)),],
@@ -164,6 +205,97 @@ MF_full <- MF %>% dplyr::filter(is.na(key_bbref_minors)) %>%
 FullDB <- CombDB2 %>% 
   anti_join(dupes) %>%
   anti_join(missings) %>%
-  bind_rows(DF,MF_full)
+  bind_rows(DF,MF_full) %>%
+  mutate(stat_det=status,
+         status=if_else(substr(status,1,9)=="Extension",
+                        "Extension",status))
 
-save(FullDB, file="int/PreFAFullDB.Rda")
+## Improving Extension player info:
+load(file="int/Svc_Sal.Rda")
+STwo <- read_csv(file="data/SuperTwo.csv") %>%
+  mutate(Season=Season+1)
+  
+PAE_players <- unique(FullDB %>% filter(status=="Extension") %>% 
+                        pull(key_bbref))
+
+Service_Cat_Fn <- function(yos,yos_lag,Threshold) {
+  if (is.na(yos)) {
+    if (is.na(yos_lag)) {
+      return("Unknown")
+    } else {
+      if (yos_lag >= 3) {
+        return("Arb+")
+      } else if (yos_lag <= Threshold-1) {
+        return("PreArb")
+      } else {
+        return("Possible Pre/Arb")
+      }
+    }
+  } else {
+    if (yos >= 3) {
+      return("Arb+")
+    } else if (yos <= Threshold) {
+      return("PreArb")
+    } else {
+      if (is.na(yos_lag)) {
+        return("Possible Pre/Arb")
+      } else {
+        diffl <- 172*floor(yos)+1000*(yos-floor(yos)) - 
+          (172*floor(yos_lag)+1000*(yos_lag-floor(yos_lag)))
+        if (diffl >= 86) {
+          return("SuperTwo")
+        } else {
+          return("PreArb")
+        }
+      }
+    }
+  }
+}
+
+SCFV <- Vectorize(Service_Cat_Fn)
+
+FDB_e <- FullDB %>% 
+  filter(key_bbref %in% PAE_players) %>%
+  arrange(player,year) %>%
+  left_join(Svc_Sal %>% dplyr::select(Season,key_bbref,key_mlbam,Service),
+            by=join_by(year==Season,
+                       key_bbref,
+                       key_mlbam)) %>%
+  left_join(STwo, by=join_by(year==Season)) %>%
+  mutate(yos=if_else(is.na(yos),Service,yos)) %>%
+  dplyr::select(-Service) %>%
+  group_by(player,key_bbref) %>%
+  mutate(yos_lag=lag(yos, default=NA_real_)) %>%
+  ungroup() %>%
+  mutate(Svc_Cat=SCFV(yos,yos_lag,Threshold))
+
+FDB <- FDB_e %>% 
+  bind_rows(FullDB %>% dplyr::filter(!(key_bbref %in% PAE_players))) %>%
+  mutate(Svc_Cat=if_else(is.na(Svc_Cat),
+                         if_else(status=="Arb-Eligible","Arb+",
+                                 "PreArb"),Svc_Cat))
+
+save(FDB, file="int/FDB.Rda")
+
+
+## Check Bonus players categorization:
+for (yr in 22:24) {
+  load(file=paste0("int/Data_",yr,".Rda"))
+  assign(x=paste0("Check_",yr),
+         value=get(paste0("Data_",yr,"_Full")) %>% 
+           left_join(FDB %>% 
+                       dplyr::select(key_bbref,year,status,yos,value,Svc_Cat) %>% 
+                       rename(Season=year, BREFID=key_bbref),
+                     by=c("Season","BREFID")))
+}
+
+Check_22 %>% filter(is.na(status))
+unique(Check_22$status)
+unique(Check_22$Svc_Cat)
+Check_23 %>% filter(is.na(status))
+unique(Check_23$status)
+unique(Check_23$Svc_Cat)
+Check_24 %>% filter(is.na(status))
+unique(Check_24$status)
+unique(Check_24$Svc_Cat)
+
