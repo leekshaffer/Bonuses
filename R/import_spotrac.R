@@ -277,25 +277,3 @@ FDB <- FDB_e %>%
 
 save(FDB, file="int/FDB.Rda")
 
-
-## Check Bonus players categorization:
-for (yr in 22:24) {
-  load(file=paste0("int/Data_",yr,".Rda"))
-  assign(x=paste0("Check_",yr),
-         value=get(paste0("Data_",yr,"_Full")) %>% 
-           left_join(FDB %>% 
-                       dplyr::select(key_bbref,year,status,yos,value,Svc_Cat) %>% 
-                       rename(Season=year, BREFID=key_bbref),
-                     by=c("Season","BREFID")))
-}
-
-Check_22 %>% filter(is.na(status))
-unique(Check_22$status)
-unique(Check_22$Svc_Cat)
-Check_23 %>% filter(is.na(status))
-unique(Check_23$status)
-unique(Check_23$Svc_Cat)
-Check_24 %>% filter(is.na(status))
-unique(Check_24$status)
-unique(Check_24$Svc_Cat)
-
