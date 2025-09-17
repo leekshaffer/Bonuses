@@ -99,9 +99,10 @@ for (yr in yrs) {
                 dplyr::pull(get(paste(meas, "t", sep="."))))/Sum
     Meas100$Meas_Share <- Share
     PAC100_any <- PAC100_any %>% left_join(Meas100) %>%
-      dplyr::mutate(Meas_Share=if_else(is.na(Meas_Share), 0, Meas_Share),
+      dplyr::mutate(BonusW=if_else(is.na(BonusW),0,BonusW),
+                    Meas_Share=if_else(is.na(Meas_Share), 0, Meas_Share),
                     Meas_BonusW=Meas_Share*TotalBW,
-                    Meas_Diff=Meas_BonusW-if_else(is.na(BonusW),0,BonusW)) %>%
+                    Meas_Diff=Meas_BonusW-BonusW) %>%
       rename_with(.cols=starts_with("Meas_"), 
                   .fn=~paste(meas, sub("Meas_", "", .x), sep="_"))
     
@@ -113,12 +114,20 @@ for (yr in yrs) {
                 dplyr::pull(get(paste(meas, "t", sep="."))))/Sum
     Meas100$Meas_Share <- Share
     PAP100_any <- PAP100_any %>% left_join(Meas100) %>%
-      dplyr::mutate(Meas_Share=if_else(is.na(Meas_Share), 0, Meas_Share),
+      dplyr::mutate(BonusW=if_else(is.na(BonusW),0,BonusW),
+                    Meas_Share=if_else(is.na(Meas_Share), 0, Meas_Share),
                     Meas_BonusW=Meas_Share*TotalBW,
-                    Meas_Diff=Meas_BonusW-if_else(is.na(BonusW),0,BonusW)) %>%
+                    Meas_Diff=Meas_BonusW-BonusW) %>%
       rename_with(.cols=starts_with("Meas_"), 
                   .fn=~paste(meas, sub("Meas_", "", .x), sep="_"))
   }
+  
+  PAC100_any <- PAC100_any %>%
+    dplyr::mutate(Max_BonusW=pmax(BonusW, bWAR_BonusW, fWAR_BonusW,
+                                 WARP_BonusW, WAR.avg_BonusW),
+                  Min_BonusW=pmin(BonusW, bWAR_BonusW, fWAR_BonusW,
+                                 WARP_BonusW, WAR.avg_BonusW),
+                  Max_Diff=Max_BonusW-Min_BonusW)
   
   assign(x=paste0("PAC100_any_",yr),
          value=PAC100_any)
