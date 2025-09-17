@@ -16,7 +16,7 @@ for (yr in 22:24) {
                           sheet = paste0("BonusesAdj",yr)) %>% 
                  mutate(BonusW=Bonus-Set_Bonus,
                         Share=BonusW/sum(BonusW),
-                        Season=as.numeric(paste0("20",yr))) %>%
+                        year=as.numeric(paste0("20",yr))) %>%
                  dplyr::select(-c(Notes,Set_Bonus)),
                by=join_by(key_bbref))
   
