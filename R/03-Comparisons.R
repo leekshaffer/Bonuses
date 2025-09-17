@@ -35,6 +35,7 @@ Comps <- FDB %>% dplyr::filter(!(Svc_Cat %in% c("Arb+","SuperTwo"))) %>%
 
 PAComp <- Comps %>% dplyr::filter(Svc_Cat == "PreArb")
 ## To Do: Set 0 instead of NA for all bonuses. Calculate difference in PAC100 not Meas100
+## Rerun spotrac
 for (yr in yrs) {
   fullyr <- as.numeric(paste0("20",yr))
   
@@ -71,21 +72,7 @@ for (yr in yrs) {
     dplyr::filter(!is.na(Bonus_rank) | bWAR_rank <= 100 | 
                     fWAR_rank <= 100 | WARP_rank <= 100 | 
                     WAR.avg_rank <= 100)
-  
-  for (meas in c("bWAR","fWAR","WARP","WAR.avg")) {
-    Meas100 <- PAC100_any %>% 
-      dplyr::filter(get(paste(meas, "rank", sep="_")) <= 100)
-    Sum <- sum(Meas100 %>%
-                 dplyr::pull(get(paste(meas, "t", sep="."))))
-    Share <- (Meas100 %>%
-      dplyr::pull(get(paste(meas, "t", sep="."))))/Sum
-    Meas100$Meas_Share <- Share
-    Meas100$Meas_BonusW <- Share*TotalBW
-    Meas100$Meas_Diff <- Meas100$Meas_BonusW-Meas100$BonusW
-    PAC100_any <- PAC100_any %>% left_join(Meas100) %>%
-      rename_with(.cols=starts_with("Meas_"), 
-                  .fn=~paste(meas, sub("Meas_", "", .x), sep="_"))
-  }
+
 
   PAP_yr <- Comps %>% dplyr::filter(year==fullyr)
   PAP_yr_ranks <- PAP_yr %>% 
@@ -102,6 +89,37 @@ for (yr in yrs) {
                     fWAR_rank <= 100 | WARP_rank <= 100 | 
                     WAR.avg_rank <= 100)
   
+  
+  for (meas in c("bWAR","fWAR","WARP","WAR.avg")) {
+    Meas100 <- PAC100_any %>% 
+      dplyr::filter(get(paste(meas, "rank", sep="_")) <= 100)
+    Sum <- sum(Meas100 %>%
+                 dplyr::pull(get(paste(meas, "t", sep="."))))
+    Share <- (Meas100 %>%
+                dplyr::pull(get(paste(meas, "t", sep="."))))/Sum
+    Meas100$Meas_Share <- Share
+    PAC100_any <- PAC100_any %>% left_join(Meas100) %>%
+      dplyr::mutate(Meas_Share=if_else(is.na(Meas_Share), 0, Meas_Share),
+                    Meas_BonusW=Meas_Share*TotalBW,
+                    Meas_Diff=Meas_BonusW-if_else(is.na(BonusW),0,BonusW)) %>%
+      rename_with(.cols=starts_with("Meas_"), 
+                  .fn=~paste(meas, sub("Meas_", "", .x), sep="_"))
+    
+    Meas100 <- PAP100_any %>% 
+      dplyr::filter(get(paste(meas, "rank", sep="_")) <= 100)
+    Sum <- sum(Meas100 %>%
+                 dplyr::pull(get(paste(meas, "t", sep="."))))
+    Share <- (Meas100 %>%
+                dplyr::pull(get(paste(meas, "t", sep="."))))/Sum
+    Meas100$Meas_Share <- Share
+    PAP100_any <- PAP100_any %>% left_join(Meas100) %>%
+      dplyr::mutate(Meas_Share=if_else(is.na(Meas_Share), 0, Meas_Share),
+                    Meas_BonusW=Meas_Share*TotalBW,
+                    Meas_Diff=Meas_BonusW-if_else(is.na(BonusW),0,BonusW)) %>%
+      rename_with(.cols=starts_with("Meas_"), 
+                  .fn=~paste(meas, sub("Meas_", "", .x), sep="_"))
+  }
+  
   assign(x=paste0("PAC100_any_",yr),
          value=PAC100_any)
   assign(x=paste0("PAP100_any_",yr),
@@ -114,3 +132,4 @@ for (yr in yrs) {
               paste0("PAC_",yr,"_ranks"),paste0("PAP_",yr,"_ranks")),
        file=paste0("int/Comp100s_",yr,".Rda"))
 }
+
