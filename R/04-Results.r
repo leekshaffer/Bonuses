@@ -9,10 +9,21 @@ names(meas_names) <- measures
 
 
 Res_Summ <- NULL
+Res_Full <- list()
 
 for (yr in yrs) {
   load(file=paste0("int/Comp100s_",yr,".Rda"))
   tbl <- get(paste("PAC100", "any", yr, sep="_"))
+  
+  Res_Full[[paste0("20",yr)]] <- tbl %>% 
+    dplyr::select(player,status,pos,team,ends_with(".t"),ends_with("rank"),ends_with("BonusW")) %>%
+    dplyr::rename_with(~sub("BonusW", "Bonus", .x),
+                       ends_with("BonusW")) %>%
+    dplyr::rename_with(~sub(".t", "", .x),
+                       ends_with(".t")) %>%
+    dplyr::rename_with(~sub("_rank", "_Rank", .x),
+                       ends_with("_rank"))
+  
   if (yr==22) {
     tbl <- tbl %>% dplyr::filter(Exact)
   }
@@ -51,6 +62,8 @@ for (yr in yrs) {
 
 Res_Summ
 save(Res_Summ, file="out/Res_Summ.Rda")
+Res_Full
+save(Res_Full, file="out/Res_Full.Rda")
 
 ## Notes:
 ### In 2023, if not for Adolis Garcia, the max increase would be:
@@ -103,13 +116,16 @@ for (yr in yrs) {
     assign(x=paste(meas, yr, sep="_"),
            value=Create_Fig(yr, meas))
     get(paste(meas, yr, sep="_"))
-    save(list=paste(meas, yr, sep="_"),
-         file=paste0("out/plot_", meas, "_", yr, ".Rda"))
+    # save(list=paste(meas, yr, sep="_"),
+    #      file=paste0("out/plot_", meas, "_", yr, ".Rda"))
     ggsave(filename=paste0("out/plot_",meas,"_",yr,".png"),
            plot=get(paste(meas, yr, sep="_"))$Plot,
            units="in", width=5, height=3, dpi=300)
   }
 }
+
+save(list=paste(rep(measures, each = length(yrs)), yrs, sep = "_"),
+     file="out/plot_all.Rda")
 
 for (yr in yrs) {
   ggsave(filename=paste0("out/plot_", yr, "_comb.png"),
