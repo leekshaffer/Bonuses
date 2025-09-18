@@ -5,3 +5,6 @@
 .DS_Store
 int_sal_svc/
 000-salary_service.R
+
+.gitignore
+~$Sources.docx
