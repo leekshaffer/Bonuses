@@ -1,6 +1,7 @@
 library(dplyr)
 library(ggplot2)
 library(patchwork)
+library(ggsci)
 yrs <- 22:24
 measures <- c("bWAR","fWAR","WARP","WAR.avg")
 meas_names <- c("bWAR", "fWAR", "WARP", "Avg. WAR")
@@ -85,6 +86,7 @@ Create_Fig <- function(yr, meas) {
                            # shape=BonusCat)) +
     scale_x_continuous(limits=c(0, 1400), breaks=seq(0, 1500, by=300)) + 
     scale_y_continuous(limits=c(0, 1400), breaks=seq(0, 1500, by=300)) + 
+    scale_color_nejm() +
     geom_abline(slope=1, intercept=0) +
     theme_bw() +
     labs(x="Reported Bonus ($1000s)",
@@ -117,7 +119,7 @@ for (yr in yrs) {
            guide_area() +
            # plot_annotation(title=paste0("Bonus Comparisons by Measure in 20", yr)) +
            plot_layout(guides="collect", nrow=2, ncol=2, byrow=TRUE),
-         units="in", width=7.5, height=7.5, dpi=300)
+         units="in", width=6, height=6, dpi=300)
 }
 
 
