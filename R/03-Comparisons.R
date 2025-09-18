@@ -39,11 +39,14 @@ PAComp <- Comps %>% dplyr::filter(Svc_Cat == "PreArb")
 for (yr in yrs) {
   fullyr <- as.numeric(paste0("20",yr))
   
-  Bonus <- get(paste0("Bonus_",yr,"_Full")) %>%
+  Bonus <- get(paste0("Bonus_",yr,"_Full"))
+  TotalBW <- 50000000-sum(Bonus$Set_Bonus)
+  
+  Bonus <- Bonus %>%
     dplyr::filter(Share > 0) %>%
     dplyr::arrange(desc(Share)) %>%
     dplyr::mutate(Bonus_rank=min_rank(desc(BonusW)))
-  TotalBW <- sum(Bonus$BonusW)
+
   # NB <- nrow(Bonus)
 
   PAC_yr <- PAComp %>% dplyr::filter(year==fullyr) 

@@ -17,7 +17,7 @@ for (yr in 22:24) {
                  mutate(BonusW=Bonus-Set_Bonus,
                         Share=BonusW/sum(BonusW),
                         year=as.numeric(paste0("20",yr))) %>%
-                 dplyr::select(-c(Notes,Set_Bonus)),
+                 dplyr::select(-c(Notes)),
                by=join_by(key_bbref))
   
   ## Get subsets with positive stat-based bonus & exact bonus

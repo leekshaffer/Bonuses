@@ -256,7 +256,7 @@ SCFV <- Vectorize(Service_Cat_Fn)
 
 FullDB_dupes <- FullDB[duplicated(FullDB %>% select(year,key_mlbam)),] %>% select(year,key_mlbam)
 FullDB_dupeRows <- FullDB %>% semi_join(FullDB_dupes) %>%
-  group_by(year,player,pl_simp,key_person,key_mlbam,key_bbref,key_bbref_minors,key_fangraphs,mlb_played_first) %>%
+  group_by(year,player,pl_simp,full,key_person,key_mlbam,key_bbref,key_bbref_minors,key_fangraphs,mlb_played_first) %>%
   dplyr::summarize(status=if_else("Extension" %in% status,"Extension","Pre-Arb"),
                    yos=max(yos, na.rm=TRUE),
                    value=max(value, na.rm=TRUE)) %>%
